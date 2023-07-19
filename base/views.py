@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.http import HttpResponse
 
 from django.contrib.auth.models import User
@@ -74,12 +74,14 @@ def home(request):
         Q(name__icontains=q) |
         Q(description__icontains=q)
     )
-    topics = Topic.objects.all()
+    topics_count = Topic.objects.all().count()
+    topics = Topic.objects.annotate(
+        topic_rooms=Count('room')).order_by('-topic_rooms')[0:5]
     rooms_count = rooms.count()
     room_messages = Message.objects.filter(Q(room__topic__name__icontains=q))
 
     context = {'rooms': rooms, 'topics': topics,
-               'rooms_count': rooms_count, 'room_messages': room_messages}
+               'rooms_count': rooms_count, 'room_messages': room_messages, 'topics_count': topics_count}
     return render(request, 'base/home.html', context)
 
 
@@ -195,3 +197,18 @@ def updateUser(request):
 
     context = {'form': form}
     return render(request, 'base/update_user.html', context)
+
+
+def topicsPage(request):
+    q = request.GET.get('q') if request.GET.get('q') != None else ''
+    topics = Topic.objects.filter(name__icontains=q).annotate(
+        topic_rooms=Count('room')).order_by('-topic_rooms')
+
+    context = {'topics': topics}
+    return render(request, 'base/topics.html', context)
+
+
+def activityPage(request):
+    room_messages = Message.objects.all()
+    context = {'room_messages': room_messages}
+    return render(request, 'base/activity.html', context)
